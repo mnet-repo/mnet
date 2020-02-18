@@ -9,7 +9,7 @@ SUBNET=10.0.0                   # must be different than WIFI
 PASSPHRASE=foobarfoo
 AP=mnet
 IP=${SUBNET}.1
-DIR=/data/misc/wifi
+DIR=/data/vendor/wifi
 
 USAGE()
 {
@@ -23,7 +23,6 @@ DOWN()
     # hope there are no other instances of same daemons
     pkill hostapd
     kill  "$(pidof dnsmasq)"
-    pkill captive
     # remove iptables rules
     iptables -D INPUT -i $AP -p udp -m udp --dport 67 -j ACCEPT
     iptables -t nat -D POSTROUTING -s ${SUBNET}.0/24 ! -o $AP -j MASQUERADE
@@ -94,29 +93,47 @@ ADD_IP_ROUTE()
 HOSTAPD_CONFIG()
 {
     # hostapd configuration
-    if [ -e $DIR/hostapd/hostapd.conf ]; then
-        rm $DIR/hostapd/hostapd.conf
+    if [ -e $DIR/hostapd/hostapd_mnet_a.conf ]; then
+        rm $DIR/hostapd/hostapd_mnet_a.conf
     fi
-	cat <<-EOF >$DIR/hostapd/hostapd.conf
+	cat <<-EOF >$DIR/hostapd/hostapd_mnet_a.conf
 	ssid=$SSID
 	interface=$AP
 	driver=nl80211
-	ignore_broadcast_ssid=0
+	channel=0
+	acs_exclude_dfs=1
 	ieee80211n=1
 	ieee80211ac=1
-	vht_capab=[HT40+]
-	channel=0
+	hw_mode=$HW
+	ht_capab=[HT40+]
 	vht_oper_chwidth=1
-	hw_mode=a
+	ignore_broadcast_ssid=0
+	wowlan_triggers=any
 	wpa=2
-	wpa_passphrase=$PASSPHRASE
 	rsn_pairwise=CCMP
-	log stuffs
-	logger_syslog=-1
-	logger_syslog_level=0
-	logger_stdout=-1
-	logger_stdout_level=0
+	wpa_passphrase=$PASSPHRASE
 	EOF
+
+    # hostapd configuration
+    if [ -e $DIR/hostapd/hostapd_mnet_g.conf ]; then
+        rm $DIR/hostapd/hostapd_mnet_g.conf
+    fi
+	cat <<-EOF >$DIR/hostapd/hostapd_mnet_g.conf
+	ssid=$SSID
+	interface=$AP
+	driver=nl80211
+	channel=0
+	acs_exclude_dfs=1
+	ieee80211n=1
+	ieee80211ac=1
+	hw_mode=$HW
+	ignore_broadcast_ssid=0
+	wowlan_triggers=any
+	wpa=2
+	rsn_pairwise=CCMP
+	wpa_passphrase=$PASSPHRASE
+	EOF
+
 }
 
 
@@ -147,8 +164,6 @@ DHCP_SERVER()
 	#bind-interfaces
 	# range of IPs to make available to wlan devices andwhen to renew IP
 	dhcp-range=${SUBNET}.2,${SUBNET}.254,24h
-	# uncomment for captive portal redirect
-	address=/#/10.0.0.1
 	# where to save leases
 	dhcp-leasefile=$DIR/dnsmasq.leases
 	# set default gateway
@@ -203,7 +218,7 @@ ADD_IP_ROUTE
 # configure acces point daemon
 HOSTAPD_CONFIG
 # start hostapd
-hostapd -d -e$DIR/entropy.bin -g$DIR/hostapd/ctrl/$AP  $DIR/hostapd.conf &
+hostapd -d -g$DIR/hostapd/ctrl/$AP  $DIR/hostapd/hostapd_mnet_$HW.conf &
 # share internet
 INTERNET_SHARE
 # run a dhcp server to assign IP's dynamically
@@ -217,13 +232,19 @@ DHCP_SERVER
     BND=5GHz
     fi
 
+BATS=$(cat /sys/class/power_supply/battery/status)
 
+if [ "$BATS" = "Charging" ]; then
+    BST='\e[01;32m+\e[0m'
+else
+    BST='\e[01;31m-\e[0m'
+fi
 
-echo -e '\e[01;30m======================\e[0m'
-echo -e '\e[01;36mmnet w/captive portal\e[0m'
-echo -e '\e[01;30m========================================================================\e[0m'
-echo wifi: \| $HSSID \| $BSS \| "$(ifconfig "$WIFI"|head -n 2|tail -n 1|cut -d : -f 2 |cut -d B -f 1|cut -d\( -f 2 |tr -d ' ')" \| $SIGNL \|
-echo AP: \| $SSID \| "$(ifconfig "$AP" |head -n 1 |cut -d H -f 2|cut -c 7-24|tr -d ' ')" \| $IP \| $CH \| $FRQ \| $BND \| 
-echo -e '\e[01;30m========================================================================\e[0m'
 logcat -c;logcat -d -C |grep -e hostapd -e dnsmasq -e wpa -e $AP -e wlan -e nl80211 -e channel
-
+echo -e ' '
+echo -e '\e[01;30m====================================================================================\e[0m'
+echo -e '\e[01;36mmnet softAP\e[0m''                          '\|'\e[0;32mBATTERY\e[0m': $BST'\e[1;33m'$(acpi |cut -d : -f 2 |tr -d ' ')'\e[0m' \| FREQ:'\e[01;36m'$FRQ'\e[0m' \| CH:'\e[01;36m'$CH'\e[0m' \| BAND:'\e[01;36m'$BND'\e[0m'
+echo -e '\e[01;30m====================================================================================\e[0m'
+echo -e '\e[01;32mHOST NET\e[0m''               '\| '\e[01;32m'$HSSID'\e[0m' \| $BSS \| $SIGNL \| '\e[1;35m'"$(curl -s icanhazip.com)"'\e[0m'
+echo -e '\e[01;36msoftAP \e[0m''                                   '\| '\e[01;36m'$SSID'\e[0m' \| "$(ifconfig "$AP" |head -n 1 |cut -d H -f 2|cut -c 7-24|tr -d ' ')" \| '\e[1;35m'"$(ifconfig "$WIFI"|head -n 2|tail -n 1|cut -d : -f 2 |cut -d B -f 1|cut -d\( -f 2 |tr -d ' ')"'\e[0m'
+echo -e '\e[01;30m====================================================================================\e[0m'
