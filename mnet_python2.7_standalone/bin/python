@@ -1,0 +1,11 @@
+#!/system/bin/sh
+
+export EXTERNAL_STORAGE=/vendor/usr
+PYTHONPATH=/vendor/usr/python2.7_extra/python
+PYTHONPATH=${PYTHONPATH}:/vendor/usr/python2/lib/python2.7/lib-dynload
+export PYTHONPATH
+export TEMP=/vendor/usr/python2.7_extra/python/tmp
+export PYTHON_EGG_CACHE=$TEMP
+export PYTHONHOME=/vendor/usr/python2
+export LD_LIBRARY_PATH=/vendor/usr/python2/lib
+/vendor/usr/python2/bin/python "$@"
