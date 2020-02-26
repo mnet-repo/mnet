@@ -34,11 +34,11 @@
 #Install: 
 
 
-#Copy mnet_python_standalone dir to data ex:
+#Copy mnet dir to data ex:
 
 #!/system/bin/sh
 
-#cp -r $(pwd)/mnet_python_standalone /data/local/mnet
+#cp -r $(pwd)/mnet /data/local/
 #chmod 0755 -R /data/local/mnet
 #chown 0.0 -R /data/local/mnet
 #export $PATH:/data/local/mnet/bin
