@@ -1,7 +1,0 @@
-#!/system/bin/sh
-iw dev wlan0 interface add mnet type __ap
-ip link set up dev mnet
-ip addr add 10.0.0.1/24 broadcast 10.0.0.255 dev mnet
-ip route add 10.0.0.0/24 dev mnet table 97
-
-
