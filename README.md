@@ -1,6 +1,8 @@
-#mnet wifi repeater with python2.7(py4a mod)
+#mnet wifi router/repeater depends python3(termux or compatible)
 
-#My other account(working on recovering access, currently locked out) has the early versions.
+#Find termux from fdroid, then
+
+apt update && apt upgrade && apt install python
 
 #The repeater itself originates from the script found here...
 
@@ -11,7 +13,7 @@
 #https://github.com/nikosft/captive-portal
 
 
-#Tested on Android 8.1 and 9 running Lineage/AOSP based roms.
+#Tested on Android 10/11 running OxygenOS and Lineage/AOSP/PHH GSI's
 
 ##mrbox23 on XDA
 ##me.nosaj31@gmail.com
@@ -19,29 +21,28 @@
 
 
 #WARNING: EXPIREMENTAL! ROOT REQUIRED! MAY NOT BE SAFE! USE WITH CAUTION
-#YOU ARE RESPOSIBLE AFTER ROOTING YOUR DEVICE AND PLAYING WITH STUFF LIKE THIS!
+#YOU ARE RESPOSIBLE AFTER ROOTING YOUR DEVICE 
 
 
 #No cats were harmed while putting this together, or as a result of my own personal use.
 
+#Should be safe, keep it in /data and set permissions as you see fit, if your not sure, I'm not an expert and I've been wrong before. 
+#I use /data/bin. 
+#Message me, I'll help best I can. This began on a moto e5 play lineageOS(8.1) and finished on moto g7 power lineageOS(9) pay attention for where your devices hostapd.conf lives(start your hotspot). Usually /data/vendor/wifi or /data/misc/wifi use the existing hostapd.conf as skeleton change ssid(2) to $SSID, interface to $AP, hw_mode to $HW, etc.
 
-#Should be safe, keep it in /data/local and set permissions as you see fit, if your not sure, I'm not an expert and I've been wrong before. 
-#I use /vendor/usr/bin personally for persistence across rom flashing. 
-#Message me, I'll help best I can. This began on a moto e5 play lineageOS(8.1) and finished on moto g7 power lineageOS(9) pay attention for where your devices hostapd.conf lives(start your hotspot). Usually /data/vendor/wifi or /data/misc/wifi use the existing hostapd.conf as skeleton change ssid(2) to $SSID, interface to $AP, hw_mode to $HW, etc. 
-#Check example configs.  Works on both Oreo and Pie for me with slight variations between. This uses /data/vendor/wifi if your running oreo, change the DIR variable at the beginning of mndt script.
 
 
 #Install: 
 
 
-#Copy mnet dir to data ex:
+#Copy mnet/mportal to data ex:
 
 #!/system/bin/sh
-
-#cp -r $(pwd)/mnet /data/local/
-#chmod 0755 -R /data/local/mnet
-#chown 0.0 -R /data/local/mnet
-#export $PATH:/data/local/mnet/bin
+mkdir /data/bin
+#cp -r $(pwd)/mnet /data/bin/
+#chmod 0755 -R /data/bin/mnet
+#chown 0.0 -R /data/bin/mnet
+#export PATH=/data/bin:$PATH
 
 
 #Use:
@@ -56,29 +57,13 @@
 
 #List connections:
 
-#mnet arp
+#strings /proc/net/arp
 
-#It's a hackjob at this point. Hopefully smarter people pitch in ;)
+#It's a hackjob at this point.
 
-#Note: The mportal python script, Along with the self contained python2.7 directory will work indepent of mnet script. It can function with android system hotspot or other hotspot/repeater methods. Align the interface/gateway settings in mportal to match. 
+#Note: The python script will work indepent of mnet script. It can function with android system hotspot or other hotspot/repeater methods. Align the interface/gateway settings in mportal to match. 
 
 ##TODO
-
-#Harden portal method
-
-#Learn python more, slim installation size
-
-#Add options to customise/add portal html/php/auth easier  easier
-
-#Add ability source/modify existing hostapd configuration and pull info from device environment.
-
-#Write interactive menu for launching and configuration
-
-#Study other github projects for ideas and working code for example.. 
-
-#Interactive menu and servers for portal...
-  
-#https://github.com/rajkumardusad/MyServer
 
 #This project already works as a repeater, using p2p framework and functions without root.
 
