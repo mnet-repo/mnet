@@ -1,8 +1,6 @@
 #!/system/bin/sh
 #set -e
 #set -x
-setenforce 0
-service call connectivity 24
 
 SSID=mnet      # set this to your desired string (avoid spaces and non-ascii characters)
 DATA=$(ip route show | head -n 1| awk -F " " '{print $3}')  # finds the current internet iface
@@ -33,7 +31,6 @@ DOWN()
     iptables -D FORWARD -i $DATA -d ${SUBNET}.0/24 -j ACCEPT
     # delete AP interface
     ip link show | grep "${AP}:" && iw $AP del
-    setenforce 1
 } > /dev/null 2>&1
 
 
@@ -44,7 +41,7 @@ CHECKS() {
         exit
     done
 
-    # this check is necessary if need to use single channel
+    # this check is to determine what nic is currently connected to internet
     if iw dev wlan0 link | grep -q '^Not connected'
     then
         echo no wifi connection, using $DATA iface ...
@@ -60,8 +57,8 @@ LOG()
         BND=5GHz
     fi
 
-
-logcat -v color |grep -e hostapd -e dnsmasq
+#TO-DO This messy, I know...
+logcat -f -v color |grep -e hostapd -e dnsmasq
 echo -e '\e[01;30m====================================================================================\e[0m'
 echo -e '\e[01;36mmnet softAP\e[0m''                          '\|'\e[0;32mBATTERY\e[0m':'\e[1;33m'$(acpi |cut -d : -f 2)'\e[0m' \| FREQ:'\e[01;36m'$FRQ'\e[0m' \| CH:'\e[01;36m'$CH'\e[0m' \| BAND:'\e[01;36m'$BND'\e[0m'
 echo -e '\e[01;30m====================================================================================\e[0m'
@@ -72,7 +69,7 @@ echo -e '\e[01;30m==============================================================
 
 INFO()
 {
-    # Here we set vars for hostapd
+    # Here we set vars for hostapd, TODO *SLOPPY CLEAN THIS UP* USE SYSFS/NATIVE UTILS 
     iw wlan0 scan | head -n 11 >/sdcard/wscn.tmp
     FRQ=$(cat /sdcard/wscn.tmp | grep freq | cut -d : -f 2 | tr -d ' ')
     HSSID=$(cat /sdcard/wscn.tmp | grep SSID | cut -d : -f 2 | tr -d ' ')
@@ -116,7 +113,7 @@ ADD_IP_ROUTE()
 
 HOSTAPD_CONFIG()
 {
-    # hostapd configuration
+    # hostapd configuration DEFAULTS TO 2.4GHz
     if [ -e $HPD/hostapd_mnet0-a.conf ]; then
         rm $HPD/hostapd_mnet0-a.conf
     fi
@@ -126,7 +123,7 @@ HOSTAPD_CONFIG()
 	driver=nl80211
 	ctrl_interface=$HPD/ctrl
 	acs_exclude_dfs=0
-	vht_capab=[SHORT-GI-80]]
+	vht_capab=[SHORT-GI-80]
 	vht_oper_chwidth=1
 	channel=0
 	op_class=127
@@ -142,9 +139,9 @@ HOSTAPD_CONFIG()
 
     # hostapd configuration
     if [ -e $HPD/hostapd_mnet0.conf ]; then
-        rm $DIR/hostapd/hostapd_mnet0.conf
+        rm $HPD/hostapd_mnet0.conf
     fi
-	cat <<-EOF >$HPF/hostapd_mnet0.conf
+	cat <<-EOF >$HPD/hostapd_mnet0.conf
 	ssid=$SSID
 	interface=$AP
 	driver=nl80211
@@ -181,7 +178,7 @@ INTERNET_SHARE()
 }
 
 
-DHCP_SERVER() #currently over my head, getting there, assign IP for devices manually for now
+DHCP_SERVER() #No internet culprit? This or one of androids paranoid networking permissions breaks connection
 {
     # configuration
     if [ -e $DNS/dnsmasq.conf ]; then
@@ -189,33 +186,22 @@ DHCP_SERVER() #currently over my head, getting there, assign IP for devices manu
     fi
 
     cat <<-EOF >$DNS/dnsmasq.conf
-	interface=mnet0
-	address=/#/10.0.0.1
-	dhcp-range=10.0.0.2,10.0.0.20,255.255.255.0,1h
-	dhcp-option=3,10.0.0.1
-	dhcp-option=6,10.0.0.1
-	server=1.1.1.1
+	user=dns_tether
+	group=net_admin
+	bind-interfaces
 	listen-address=10.0.0.1
-	EOF
-#	user=dns_tether
-#	group=net_admin
-#	bind-interfaces
-#	listen-address=10.0.0.1
-#	interface=mnet0
-#	except-interface=lo
-#	no-dhcp-interface=lo
-#	dhcp-range=10.0.0.2,10.0.0.20,1hr/
-#	dhcp-option-force=option:router,10.0.0.1
-#	log-dhcp
-#       no-hosts
-#	no-resolv
+	interface=mnet0
+	dhcp-range=10.0.0.2,10.0.0.20,1hr
+	dhcp-option-force=option:router,10.0.0.1
+	log-dhcp
+        no-hosts
+	no-resolv
 
     #open listening port
     iptables -I INPUT -i $AP -p udp -m udp --dport 53 -j ACCEPT
-    # start dhcp server and provide resolv.conf
-#    echo nameserver 1.1.1.1 >$DNS/dnsmasq.resolv && 
-    chown dns_tether:net_admin -R $DNS
-    dnsmasq -C $DNS/dnsmasq.conf -x $DNS/dnsmasq.pid -l $DNS/dnsmasq.leases & #-r $DNS/dnsmasq.resolv &
+    # start dhcp server and set permissions
+    chown wifi:wifi -R $DNS
+    dnsmasq -C $DNS/dnsmasq.conf -x $DNS/dnsmasq.pid -l $DNS/dnsmasq.leases & #RUN IN BACKGROUND!
 }
 
 
@@ -245,9 +231,9 @@ CREATE_AP
 ADD_IP_ROUTE
 # configure acces point daemon
 HOSTAPD_CONFIG
-# start hostapd
-chown wifi:wifi -R /data/vendor/wifi/hostapd
-hostapd -B -g$HPD/global $HPD/hostapd_mnet0-a.conf
+# start hostapd use replace with hostapd_mnet0-a.conf for 5GHz
+chown wifi:wifi -R $HPD
+hostapd -g$HPD/global $HPD/hostapd_mnet0.conf &
 # share internet
 INTERNET_SHARE
 # run a dhcp server to assign IP's dynamically
